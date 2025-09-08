@@ -1,3 +1,17 @@
+
+
+@import "tailwindcss";
+
+/* index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  @apply bg-gradient-to-br from-blue-200 to-blue-400;
+  font-family: 'Inter', sans-serif;
+}
+
+input:focus {
+  @apply outline-none ring-2 ring-blue-400;
+}
