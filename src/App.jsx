@@ -2,114 +2,48 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 
 // --- SETUP & CONFIGURATION ---
 
-// Tailwind CSS Script Injection
+// This code loads the Tailwind CSS framework and configures dark mode.
 (() => {
   if (!document.querySelector('script[src="https://cdn.tailwindcss.com"]')) {
     const tailwindScript = document.createElement('script');
     tailwindScript.src = 'https://cdn.tailwindcss.com';
     document.head.appendChild(tailwindScript);
     
-    // Configure Tailwind for Dark Mode
     tailwindScript.onload = () => {
       window.tailwind.config = {
         darkMode: 'class',
-        theme: {
-          extend: {},
-        },
       };
     };
   }
 })();
 
-// App Context
-const AppContext = createContext();
+// This hook saves and retrieves app states (like current city, favorite cities, and theme) from local storage, so data persists even after the browser is closed.
+function useLocalStorage(key, initialValue) {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(error);
+      return initialValue;
+    }
+  });
 
-// App Provider to manage state and fetch data
-const AppProvider = ({ children }) => {
-    const [currentCity, setCurrentCity] = useState({ lat: 23.8103, lon: 90.4125, name: "Dhaka" });
-    const [favoriteCities, setFavoriteCities] = useState([]);
-    const [theme, setTheme] = useState('dark');
-    const [units, setUnits] = useState('metric');
-    const [weatherData, setWeatherData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    
-    // Replace with your actual API key
-    const API_KEY = '0d947102d717c574df8d1b71b05941dd';
+  const setValue = (value) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
-    useEffect(() => {
-        // Load favorites from local storage on initial render
-        const storedFavorites = JSON.parse(localStorage.getItem('favoriteCities'));
-        if (storedFavorites) {
-            setFavoriteCities(storedFavorites);
-        }
-
-        // Apply theme to the document
-        document.body.classList.toggle('dark', theme === 'dark');
-    }, [theme]);
-
-    useEffect(() => {
-        // Fetch weather data when city or units change
-        const fetchWeatherData = async () => {
-            setLoading(true);
-            setError(null);
-            
-            if (!API_KEY || API_KEY === 'YOUR_API_KEY') {
-                setError('Please provide a valid OpenWeatherMap API key.');
-                setLoading(false);
-                return;
-            }
-
-            try {
-                // Fetch current and forecast data
-                const [currentRes, forecastRes] = await Promise.all([
-                    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${currentCity.lat}&lon=${currentCity.lon}&appid=${API_KEY}&units=${units}`),
-                    fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${currentCity.lat}&lon=${currentCity.lon}&appid=${API_KEY}&units=${units}`)
-                ]);
-
-                if (!currentRes.ok || !forecastRes.ok) {
-                    throw new Error('Failed to load weather data.');
-                }
-
-                const currentData = await currentRes.json();
-                const forecastData = await forecastRes.json();
-
-                setWeatherData({ current: currentData, forecast: forecastData });
-
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchWeatherData();
-    }, [currentCity, units, API_KEY]);
-
-    // Save favorites to local storage whenever it changes
-    useEffect(() => {
-        localStorage.setItem('favoriteCities', JSON.stringify(favoriteCities));
-    }, [favoriteCities]);
-
-    const addFavorite = (city) => {
-        if (!favoriteCities.some(fav => fav.name === city.name)) {
-            setFavoriteCities([...favoriteCities, city]);
-        }
-    };
-
-    const removeFavorite = (cityName) => {
-        setFavoriteCities(favoriteCities.filter(fav => fav.name !== cityName));
-    };
-
-    const value = {
-        currentCity, setCurrentCity, favoriteCities, addFavorite, removeFavorite,
-        weatherData, loading, error, theme, setTheme, units, setUnits, API_KEY
-    };
-
-    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
+  return [storedValue, setValue];
+}
 
 // --- SVG ICONS (Self-contained components) ---
+// SVG code for various weather icons and UI elements used in the app.
 const Sun = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>;
 const Moon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>;
 const Cloud = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>;
@@ -125,162 +59,282 @@ const MapPin = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBo
 const Sunrise = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 2v8"></path><path d="m4.93 10.93 1.41 1.41"></path><path d="M2 18h2"></path><path d="M20 18h2"></path><path d="m17.66 12.34 1.41-1.41"></path><path d="M22 22H2"></path><path d="m16 5-4-4-4 4"></path></svg>;
 const Sunset = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 10V2"></path><path d="m4.93 10.93 1.41 1.41"></path><path d="M2 18h2"></path><path d="M20 18h2"></path><path d="m17.66 12.34 1.41-1.41"></path><path d="M22 22H2"></path><path d="m16 18-4 4-4-4"></path></svg>;
 const AlertTriangle = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>;
-const XIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>;
 
-// A helper component to render the appropriate weather icon based on the icon code
-const WeatherIcon = ({ code, className }) => {
-    const iconMap = {
-        '01d': <Sun className={className} />,
-        '01n': <Moon className={className} />,
-        '02d': <Cloud className={className} />,
-        '02n': <Cloud className={className} />,
-        '03d': <Cloud className={className} />,
-        '03n': <Cloud className={className} />,
-        '04d': <Cloud className={className} />,
-        '04n': <Cloud className={className} />,
-        '09d': <CloudRain className={className} />,
-        '09n': <CloudRain className={className} />,
-        '10d': <CloudDrizzle className={className} />,
-        '10n': <CloudDrizzle className={className} />,
-        '11d': <AlertTriangle className={className} />,
-        '11n': <AlertTriangle className={className} />,
-        '13d': <CloudSnow className={className} />,
-        '13n': <CloudSnow className={className} />,
-        '50d': <Cloud className={className} />,
-        '50n': <Cloud className={className} />,
+// --- CONTEXT & PROVIDERS ---
+// This React Context is used to pass app states to different components.
+const AppContext = createContext();
+
+const AppProvider = ({ children }) => {
+    // API KEYs are now constants inside AppProvider
+    const WEATHERAPI_KEY = "5d4631a4118a4d65b4741506250809";
+    const OPENWEATHER_API_KEY = "0d947102d717c574df8d1b71b05941dd";
+    const LOCATIONIQ_API_KEY = "pk.375c7400029716887a010093a20998e1"; // Example key, replace with your own
+    const [currentCity, setCurrentCity] = useLocalStorage('currentCity', { name: "bogra", lat: 24.8465, lon: 89.3757 });
+    const [favoriteCities, setFavoriteCities] = useLocalStorage('favoriteCities', [{ name: "London" }]);
+    const [theme, setTheme] = useLocalStorage('theme', 'dark');
+    const [units, setUnits] = useLocalStorage('units', 'metric');
+    
+    const [weatherData, setWeatherData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        document.documentElement.className = theme;
+    }, [theme]);
+    
+    // This useEffect handles the main API calls.
+    useEffect(() => {
+        const fetchWeatherWithFallback = async () => {
+            setLoading(true);
+            setError(null);
+            
+            // Try with WeatherAPI.com first
+            try {
+                const url = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${currentCity.lat},${currentCity.lon}&days=7`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error("WeatherAPI.com failed to fetch data. Trying OpenWeatherMap...");
+                }
+                
+                const data = await response.json();
+                
+                // Convert WeatherAPI.com data to a common format
+                const formattedData = {
+                    location: data.location,
+                    current: data.current,
+                    forecast: data.forecast,
+                    hourly: data.forecast.forecastday[0].hour,
+                    source: 'weatherapi'
+                };
+                setWeatherData(formattedData);
+
+            } catch (err) {
+                console.error("Primary API failed:", err);
+                
+                // Fallback to OpenWeatherMap
+                try {
+                    const openWeatherUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${currentCity.name}&appid=${OPENWEATHER_API_KEY}&units=${units}`;
+                    const openWeatherResponse = await fetch(openWeatherUrl);
+
+                    if (!openWeatherResponse.ok) {
+                        throw new Error("OpenWeatherMap also failed. Could not fetch data.");
+                    }
+                    
+                    const openWeatherData = await openWeatherResponse.json();
+
+                    // Convert OpenWeatherMap data to a common format
+                    const formattedData = {
+                        location: {
+                            name: openWeatherData.city.name,
+                            lat: openWeatherData.city.coord.lat,
+                            lon: openWeatherData.city.coord.lon
+                        },
+                        current: {
+                            temp_c: openWeatherData.list[0].main.temp,
+                            is_day: 1, // Placeholder as OpenWeather doesn't provide this directly in forecast
+                            condition: {
+                                text: openWeatherData.list[0].weather[0].description,
+                                icon: openWeatherData.list[0].weather[0].icon
+                            },
+                            feelslike_c: openWeatherData.list[0].main.feels_like,
+                            humidity: openWeatherData.list[0].main.humidity,
+                            wind_kph: openWeatherData.list[0].wind.speed * 3.6, // Convert m/s to kph
+                            uv: "N/A"
+                        },
+                        forecast: {
+                            forecastday: openWeatherData.list.filter((item, index) => index % 8 === 0).map(item => ({
+                                date: item.dt_txt,
+                                day: {
+                                    maxtemp_c: item.main.temp_max,
+                                    mintemp_c: item.main.temp_min,
+                                    condition: {
+                                        icon: item.weather[0].icon,
+                                        text: item.weather[0].description
+                                    }
+                                }
+                            }))
+                        },
+                        // Additional data for SidePanel's hourly forecast
+                        hourly: openWeatherData.list.slice(0, 24).map(item => ({
+                            time: item.dt_txt,
+                            is_day: 1, // Placeholder
+                            condition: {
+                                icon: item.weather[0].icon,
+                                text: item.weather[0].description
+                            },
+                            temp_c: item.main.temp
+                        })),
+                        source: 'openweathermap'
+                    };
+                    setWeatherData(formattedData);
+                    
+                } catch (fallbackErr) {
+                    setError(fallbackErr.message);
+                    console.error("Fallback API also failed:", fallbackErr);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (currentCity.name) {
+            fetchWeatherWithFallback();
+        }
+    }, [currentCity, units, WEATHERAPI_KEY, OPENWEATHER_API_KEY]);
+
+    const addFavorite = (city) => {
+        if (!favoriteCities.some(fav => fav.name === city.name)) {
+            setFavoriteCities([...favoriteCities, city]);
+        }
     };
-    return iconMap[code] || <Cloud className={className} />;
+    const removeFavorite = (cityName) => setFavoriteCities(favoriteCities.filter(fav => fav.name !== cityName));
+    
+    const value = { currentCity, setCurrentCity, favoriteCities, addFavorite, removeFavorite, weatherData, loading, error, theme, setTheme, units, setUnits, WEATHERAPI_KEY, OPENWEATHER_API_KEY, LOCATIONIQ_API_KEY };
+
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
+
+// --- HELPER & CHILD COMPONENTS ---
+// This component loads the correct icon based on the weather data source.
+const WeatherIcon = ({ code, className, isDay, source }) => {
+  // Use WeatherAPI.com icons
+  if (source === 'weatherapi') {
+      const iconCode = code.match(/(\d+)\.png$/)?.[1] || code;
+      const iconUrl = `//cdn.weatherapi.com/weather/64x64/${isDay ? 'day' : 'night'}/${iconCode}.png`;
+      return <img src={iconUrl} alt="Weather icon" className={className} />;
+  }
+  // Use OpenWeatherMap icons
+  else {
+      return <img src={`https://openweathermap.org/img/wn/${code}@2x.png`} alt="Weather icon" className={className} />;
+  }
+};
+
+const LoadingSpinner = () => (
+    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-sky-400"></div>
+    </div>
+);
+
+const MessageBox = ({ message, onClose }) => {
+    return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+            <div className="bg-white dark:bg-slate-700 p-6 rounded-lg shadow-xl max-w-sm mx-auto">
+                <p className="text-center font-medium dark:text-gray-200">{message}</p>
+                <button onClick={onClose} className="mt-4 w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Close</button>
+            </div>
+        </div>
+    );
 };
 
 // --- MAIN UI COMPONENTS ---
+// This component is the app's main display, showing current weather data.
 function MainWeatherDisplay() {
-    const { weatherData, units, loading, error } = useContext(AppContext);
+    const { weatherData, units } = useContext(AppContext);
+    if (!weatherData) return <div className="flex-grow flex items-center justify-center"><p>No weather data available.</p></div>;
 
-    if (loading) {
-        return (
-            <div className="flex-grow flex items-center justify-center">
-                <div className="loading-spinner w-16 h-16 border-sky-400"></div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex-grow flex items-center justify-center text-center p-4">
-                <p className="text-red-500 font-bold">{error}</p>
-            </div>
-        );
-    }
+    const { location, current, forecast } = weatherData;
+    const isDay = current.is_day === 1;
+    const today = forecast?.forecastday?.[0];
+    const source = weatherData.source || 'weatherapi';
     
-    if (!weatherData) return null;
-
-    const current = weatherData.current;
-    const forecast = weatherData.forecast;
-
-    const todayForecasts = forecast.list.filter(item => {
-        const itemDate = new Date(item.dt * 1000);
-        return itemDate.getDate() === new Date().getDate();
-    });
-    
-    const maxTempToday = todayForecasts.length > 0 ? Math.max(...todayForecasts.map(item => item.main.temp_max)) : current.main.temp_max;
-    const minTempToday = todayForecasts.length > 0 ? Math.min(...todayForecasts.map(item => item.main.temp_min)) : current.main.temp_min;
-
     return (
         <div className="flex-grow flex flex-col p-6 md:p-8 text-white dark:text-gray-100">
             {/* Top Header */}
             <div className="flex justify-between items-start">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-bold">{current.name}</h1>
-                    <p className="text-gray-400 dark:text-gray-400">{new Date(current.dt * 1000).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                    <h1 className="text-3xl md:text-4xl font-bold">{location.name}</h1>
+                    <p className="text-gray-400 dark:text-gray-400">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                 </div>
                 <div className="text-right">
-                    <p className="font-semibold text-lg">{Math.round(maxTempToday)}° / {Math.round(minTempToday)}°</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-400 capitalize">{current.weather[0].description}</p>
+                    <p className="font-semibold text-lg">{Math.round(today?.day.maxtemp_c)}° / {Math.round(today?.day.mintemp_c)}°</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-400 capitalize">{current.condition.text}</p>
                 </div>
             </div>
 
             {/* Main Temp & Icon */}
             <div className="my-auto flex flex-col items-center text-center">
-                 <WeatherIcon code={current.weather[0].icon} className="w-24 h-24 sm:w-32 sm:h-32 drop-shadow-lg" />
-                 <p className="text-7xl sm:text-8xl font-extrabold tracking-tighter">{Math.round(current.main.temp)}°<span className="text-5xl align-top font-light">{units === 'metric' ? 'C' : 'F'}</span></p>
+                 <WeatherIcon code={current.condition.icon} isDay={isDay} source={source} className="w-24 h-24 sm:w-32 sm:h-32 drop-shadow-lg" />
+                 <p className="text-7xl sm:text-8xl font-extrabold tracking-tighter">{Math.round(current.temp_c)}°<span className="text-5xl align-top font-light">C</span></p>
             </div>
             
             {/* Details Grid */}
             <div className="mt-auto grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                <div className="bg-white/10 dark:bg-black/20 p-4 rounded-xl">
+                <div className="bg-black/20 dark:bg-white/10 p-4 rounded-xl">
                     <p className="text-sm text-gray-400">Feels Like</p>
-                    <p className="text-xl font-bold">{Math.round(current.main.feels_like)}°</p>
+                    <p className="text-xl font-bold">{Math.round(current.feelslike_c)}°</p>
                 </div>
-                <div className="bg-white/10 dark:bg-black/20 p-4 rounded-xl">
+                <div className="bg-black/20 dark:bg-white/10 p-4 rounded-xl">
                     <p className="text-sm text-gray-400">Humidity</p>
-                    <p className="text-xl font-bold">{current.main.humidity}%</p>
+                    <p className="text-xl font-bold">{current.humidity}%</p>
                 </div>
-                 <div className="bg-white/10 dark:bg-black/20 p-4 rounded-xl">
+                 <div className="bg-black/20 dark:bg-white/10 p-4 rounded-xl">
                     <p className="text-sm text-gray-400">Wind Speed</p>
-                    <p className="text-xl font-bold">{Math.round(current.wind.speed)} {units === 'metric' ? 'm/s' : 'mph'}</p>
+                    <p className="text-xl font-bold">{current.wind_kph} kph</p>
                 </div>
-                 <div className="bg-white/10 dark:bg-black/20 p-4 rounded-xl">
-                    <p className="text-sm text-gray-400">Pressure</p>
-                    <p className="text-xl font-bold">{current.main.pressure} hPa</p>
+                 <div className="bg-black/20 dark:bg-white/10 p-4 rounded-xl">
+                    <p className="text-sm text-gray-400">UV Index</p>
+                    <p className="text-xl font-bold">{current.uv || 'N/A'}</p>
                  </div>
             </div>
         </div>
     );
 }
 
-function SidePanel() {
-    const { favoriteCities, setCurrentCity, weatherData, addFavorite, removeFavorite, theme, setTheme, units, setUnits, API_KEY } = useContext(AppContext);
+// This component is the app's side panel, where search, forecasts, and other options are located.
+function SidePanel({WEATHERAPI_KEY, OPENWEATHER_API_KEY, LOCATIONIQ_API_KEY}) {
+    const { favoriteCities, setCurrentCity, weatherData, addFavorite, removeFavorite, theme, setTheme, units, setUnits } = useContext(AppContext);
     const [input, setInput] = useState('');
     const [searchError, setSearchError] = useState('');
     
     if (!weatherData) return null;
-    const current = weatherData.current;
-    const forecast = weatherData.forecast;
+    const { location, current, forecast, hourly } = weatherData;
+    const source = weatherData.source || 'weatherapi';
 
+    // This function uses the LocationIQ API to find the correct latitude and longitude from a city name.
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!input.trim()) return;
         setSearchError('');
         try {
-            const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${input}&limit=1&appid=${API_KEY}`);
-            if (!response.ok) throw new Error("Could not find location.");
-            const data = await response.json();
-            if (data.length > 0) {
-                const city = { name: data[0].name, lat: data[0].lat, lon: data[0].lon };
+            // Try Nominatim API first
+            const geoUrl = `https://nominatim.openstreetmap.org/search?q=${input}&format=json&limit=1`;
+            const geoResponse = await fetch(geoUrl);
+            const geoData = await geoResponse.json();
+
+            if (geoData.length > 0) {
+                const { display_name, lat, lon } = geoData[0];
+                const city = { name: display_name.split(',')[0], lat, lon };
                 setCurrentCity(city);
                 setInput('');
             } else {
-                setSearchError("City not found.");
+                throw new Error("City not found. Trying WeatherAPI.com...");
             }
         } catch (err) {
-            setSearchError(err.message);
+            console.error("Nominatim search failed:", err);
+            // Fallback to WeatherAPI.com search
+            try {
+                const url = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${input}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("City not found.");
+                const data = await response.json();
+                
+                const city = { name: data.location.name, lat: data.location.lat, lon: data.location.lon };
+                setCurrentCity(city);
+                setInput('');
+            } catch (fallbackErr) {
+                setSearchError(fallbackErr.message);
+            }
         }
     };
     
-    const isCurrentFavorite = favoriteCities.some(fav => fav.name === current.name);
+    const isCurrentFavorite = favoriteCities.some(fav => fav.name === location.name);
 
     const handleToggleFavorite = () => {
-        const city = { name: current.name, lat: current.coord.lat, lon: current.coord.lon };
+        const city = { name: location.name, lat: location.lat, lon: location.lon };
         if (isCurrentFavorite) removeFavorite(city.name);
         else addFavorite(city);
     };
-
-    // Calculate daily forecasts from 3-hour forecast data
-    const dailyForecasts = {};
-    forecast.list.forEach(item => {
-        const date = new Date(item.dt * 1000).toDateString();
-        if (!dailyForecasts[date]) {
-            dailyForecasts[date] = {
-                min: item.main.temp_min,
-                max: item.main.temp_max,
-                icon: item.weather[0].icon,
-                dt: item.dt
-            };
-        } else {
-            dailyForecasts[date].min = Math.min(dailyForecasts[date].min, item.main.temp_min);
-            dailyForecasts[date].max = Math.max(dailyForecasts[date].max, item.main.temp_max);
-        }
-    });
 
     return (
         <div className="bg-gray-100 dark:bg-slate-900/80 backdrop-blur-xl p-6 md:p-8 text-slate-800 dark:text-gray-100 h-full flex flex-col gap-6 overflow-y-auto">
@@ -306,14 +360,9 @@ function SidePanel() {
                 </div>
                 <div className="flex flex-col gap-3">
                     {favoriteCities.map(fav => (
-                        <div key={fav.name} onClick={() => setCurrentCity(fav)} className="bg-white dark:bg-slate-800/50 p-3 rounded-lg flex justify-between items-center gap-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-800 transition-colors">
-                            <div className="flex items-center gap-4">
-                                <MapPin className="w-5 h-5 text-sky-500" />
-                                <span>{fav.name}</span>
-                            </div>
-                            <button onClick={(e) => { e.stopPropagation(); removeFavorite(fav.name); }} className="text-gray-500 hover:text-red-500">
-                                <XIcon className="w-4 h-4"/>
-                            </button>
+                        <div key={fav.name} onClick={() => setCurrentCity(fav)} className="bg-white dark:bg-slate-800/50 p-3 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-800 transition-colors">
+                            <MapPin className="w-5 h-5 text-sky-500" />
+                            <span>{fav.name}</span>
                         </div>
                     ))}
                 </div>
@@ -323,11 +372,11 @@ function SidePanel() {
             <div>
                 <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-300 mb-4">Hourly Forecast</h2>
                 <div className="flex gap-4 overflow-x-auto pb-2">
-                    {forecast.list.slice(0, 8).map((hour, index) => (
+                    {hourly && hourly.map((hour, index) => (
                         <div key={index} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800/50 rounded-xl flex-shrink-0 text-center w-20">
-                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{new Date(hour.dt * 1000).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })}</p>
-                            <WeatherIcon code={hour.weather[0].icon} className="w-8 h-8"/>
-                            <p className="text-lg font-semibold">{Math.round(hour.main.temp)}°</p>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{new Date(hour.time).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })}</p>
+                            <WeatherIcon code={hour.condition.icon} isDay={hour.is_day === 1} source={source} className="w-8 h-8"/>
+                            <p className="text-lg font-semibold">{Math.round(hour.temp_c)}°</p>
                         </div>
                     ))}
                 </div>
@@ -337,11 +386,11 @@ function SidePanel() {
              <div>
                 <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-300 mb-4">7-Day Forecast</h2>
                 <div className="flex flex-col gap-3">
-                     {Object.values(dailyForecasts).slice(1, 8).map((day, index) => (
+                     {forecast?.forecastday.map((day, index) => (
                         <div key={index} className="flex justify-between items-center bg-white dark:bg-slate-800/50 p-3 rounded-lg">
-                           <p className="font-semibold w-1/3">{new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'long' })}</p>
-                           <WeatherIcon code={day.icon} className="w-8 h-8"/>
-                           <p className="w-1/3 text-right"><span className="font-semibold">{Math.round(day.max)}°</span> / {Math.round(day.min)}°</p>
+                           <p className="font-semibold w-1/3">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
+                           <WeatherIcon code={day.day.condition.icon} isDay={true} source={source} className="w-8 h-8"/>
+                           <p className="w-1/3 text-right"><span className="font-semibold">{Math.round(day.day.maxtemp_c)}°</span> / {Math.round(day.day.mintemp_c)}°</p>
                         </div>
                     ))}
                 </div>
@@ -353,14 +402,14 @@ function SidePanel() {
                     <Sunrise className="w-8 h-8 text-yellow-500"/>
                     <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Sunrise</p>
-                        <p className="font-bold text-lg">{new Date(current.sys.sunrise * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="font-bold text-lg">{forecast?.forecastday?.[0].astro.sunrise}</p>
                     </div>
                  </div>
                  <div className="bg-white dark:bg-slate-800/50 p-4 rounded-xl flex items-center gap-4">
                     <Sunset className="w-8 h-8 text-orange-500"/>
                     <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Sunset</p>
-                        <p className="font-bold text-lg">{new Date(current.sys.sunset * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="font-bold text-lg">{forecast?.forecastday?.[0].astro.sunset}</p>
                     </div>
                  </div>
             </div>
@@ -376,29 +425,48 @@ function SidePanel() {
     );
 }
 
-// Main App component that renders the UI
-function AppContent() {
+function AppContent({WEATHERAPI_KEY, OPENWEATHER_API_KEY, LOCATIONIQ_API_KEY}) {
+    const { loading, error } = useContext(AppContext);
+    const [showMessage, setShowMessage] = useState(false);
+    
+    useEffect(() => {
+        if(error) {
+            setShowMessage(true);
+        }
+    }, [error]);
+
+    const handleCloseMessage = () => {
+        setShowMessage(false);
+    };
+
     return (
         <div className="bg-white dark:bg-slate-900 font-sans transition-colors duration-300">
             <main className="min-h-screen w-full bg-cover bg-center relative" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1444080748397-f442aa95c3e5?q=80&w=2832&auto=format&fit=crop')" }}>
-                <div className={`min-h-screen w-full bg-black/30 dark:bg-slate-900/50 backdrop-blur-sm grid grid-cols-1 lg:grid-cols-3`}>
+                {loading && <LoadingSpinner />}
+                {showMessage && <MessageBox message={error} onClose={handleCloseMessage} />}
+                
+                <div className={`min-h-screen w-full bg-black/30 dark:bg-slate-900/50 backdrop-blur-sm grid grid-cols-1 lg:grid-cols-3 transition-opacity duration-500 ${loading ? 'opacity-0' : 'opacity-100'}`}>
                     <div className="lg:col-span-2 flex flex-col">
                         <MainWeatherDisplay />
                     </div>
                     <div className="lg:col-span-1 border-t border-white/10 lg:border-t-0 lg:border-l lg:border-white/10">
-                        <SidePanel />
+                        <SidePanel WEATHERAPI_KEY={WEATHERAPI_KEY} OPENWEATHER_API_KEY={OPENWEATHER_API_KEY} LOCATIONIQ_API_KEY={LOCATIONIQ_API_KEY} />
                     </div>
                 </div>
             </main>
         </div>
-    );
+    )
 }
 
-// --- MAIN REACT APPLICATION ENTRY POINT ---
+// --- MAIN APP COMPONENT ---
 export default function App() {
+    // API keys are defined here. Use your own keys.
+    const WEATHERAPI_KEY = "5d4631a4118a4d65b4741506250809";
+    const OPENWEATHER_API_KEY = "0d947102d717c574df8d1b71b05941dd";
+    const LOCATIONIQ_API_KEY = "pk.375c7400029716887a010093a20998e1";
     return (
         <AppProvider>
-            <AppContent />
+            <AppContent WEATHERAPI_KEY={WEATHERAPI_KEY} OPENWEATHER_API_KEY={OPENWEATHER_API_KEY} LOCATIONIQ_API_KEY={LOCATIONIQ_API_KEY} />
         </AppProvider>
     );
 }
